@@ -61,7 +61,7 @@ main() {
 
   # Attach the session on the chosen VT; openvt runs us there and chvt-switches.
   openvt -c "$vt" -s -w -- \
-    tmux -f "${_here}/tmux.conf" attach-session -t "$BS_SESSION" || true
+    "${BS_TMUX:-tmux}" -f "${_here}/tmux.conf" attach-session -t "$BS_SESSION" || true
 
   kill "$controller_pid" 2>/dev/null || true
 }

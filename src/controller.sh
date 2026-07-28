@@ -30,7 +30,10 @@ bs_show_view() {
   "${tmux[@]}" select-window -t "${BS_SESSION}:${view}" 2>/dev/null || true
 }
 
-# Reset the kernel console blank timer and force a redraw so the panel lights up.
+# Wake the display on GPU activity: force the attached tmux client to redraw.
+# The redraw writes bytes to the physical VT, and console output makes the
+# kernel unblank the screen (incl. DPMS powerdown). Verify on hardware — see
+# the wake-on-GPU note in the manual checklist.
 bs_wake_display() {
   local tmux=(${BS_TMUX})
   "${tmux[@]}" refresh-client 2>/dev/null || true

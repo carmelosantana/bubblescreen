@@ -973,6 +973,7 @@ Not automatable in CI — run on the TrueNAS box after deploying:
 - [ ] App **on** → console shows the dashboard; App **off** → TrueNAS console returns.
 - [ ] `nvidia-smi` data visible in the nvtop pane (real numbers).
 - [ ] Start a GPU job → smart mode switches to the GPU view and the panel wakes.
+  - [ ] With `WAKE_ON_GPU=true`, confirm the display actually wakes from a blanked/DPMS-off state when a GPU job crosses the threshold; if it does not, harden `bs_wake_display` (e.g. re-assert `chvt` to the dashboard VT, or write directly to the VT device).
 - [ ] Idle `SCREEN_TIMEOUT` → monitor powers off; keypress wakes it.
 - [ ] Arrow keys switch views; mouse wheel scrolls.
 - [ ] Confirm whether `SYS_TTY_CONFIG` suffices or `privileged: true` is needed; record in README.

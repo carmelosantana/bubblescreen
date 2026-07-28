@@ -46,6 +46,10 @@ The NVIDIA runtime must be enabled on the host (TrueNAS Apps → NVIDIA support)
 | `TARGET_VT` | `auto` | VT to use (`auto` picks a free one) |
 | `BTOP_PRESET` | `0` | btop layout preset |
 
+`SCREEN_TIMEOUT` is applied via the kernel console blanker, which works in whole
+minutes: the value is rounded to the nearest minute and clamped to 1–60 minutes
+(`0` = never).
+
 ## Controls
 
 Arrow keys switch views; mouse wheel scrolls. Any key/mouse input wakes the
