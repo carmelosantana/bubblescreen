@@ -29,3 +29,38 @@ setup() {
   [[ "$CALLS" == *"chvt 1"* ]]
   [[ "$CALLS" == *"--blank 0"* ]]
 }
+
+@test "main restores the console on exit (trap fires with orig_vt bound)" {
+  # Stub the scripts main invokes by path, and point _here at them.
+  local stubdir="$BATS_TEST_TMPDIR/stub"
+  mkdir -p "$stubdir"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$stubdir/layout.sh"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$stubdir/controller.sh"
+  : > "$stubdir/tmux.conf"
+  chmod +x "$stubdir/layout.sh" "$stubdir/controller.sh"
+  _here="$stubdir"
+
+  # Log restore-path calls to a file so they survive main's subshell.
+  local log="$BATS_TEST_TMPDIR/calls.log"
+  : > "$log"
+  export BS_LOG="$log"
+  setterm()   { printf 'setterm %s\n' "$*" >> "$BS_LOG"; }
+  chvt()      { printf 'chvt %s\n' "$*" >> "$BS_LOG"; }
+  fgconsole() { printf '1\n'; }
+  openvt()    { :; }
+  gpm()       { :; }
+  export -f setterm chvt fgconsole openvt gpm
+
+  # Numeric TARGET_VT avoids discovery; BS_TMUX=true avoids a real tmux.
+  TARGET_VT=2
+  SCREEN_TIMEOUT=1800
+  BS_TMUX=true
+
+  # Run main in a subshell so its EXIT trap fires before we assert.
+  ( main ) || true
+
+  run cat "$log"
+  # Restore must have run: chvt back to the original VT and un-blank.
+  [[ "$output" == *"chvt 1"* ]]
+  [[ "$output" == *"setterm --term linux --blank 0"* ]]
+}

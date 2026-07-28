@@ -31,6 +31,8 @@ bs_set_blank() {
 
 bs_restore() {
   local original="$1"
+  # Disarm the trap so a signal-triggered restore doesn't re-run on EXIT.
+  trap - EXIT INT TERM
   "${BS_TMUX:-tmux}" kill-server 2>/dev/null || true
   setterm --term linux --blank 0 --powerdown 0 >/dev/null 2>&1 || true
   chvt "$original" 2>/dev/null || true
@@ -40,7 +42,11 @@ main() {
   local orig_vt vt
   orig_vt="$(fgconsole 2>/dev/null || echo 1)"
   vt="$(bs_pick_vt)"
-  trap 'bs_restore "$orig_vt"' EXIT INT TERM
+  # Bind orig_vt at trap-install time (double-quoted) so restore still has its
+  # value after main returns and the EXIT trap fires — a single-quoted body
+  # would expand the now-out-of-scope local under set -u and abort before
+  # bs_restore ever runs, stranding the console.
+  trap "bs_restore '$orig_vt'" EXIT INT TERM
 
   # Console mouse (wheel scroll) for tmux/btop/nvtop.
   gpm -m /dev/input/mice -t imps2 >/dev/null 2>&1 || true
