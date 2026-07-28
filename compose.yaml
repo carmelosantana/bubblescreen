@@ -1,0 +1,25 @@
+services:
+  bubblescreen:
+    image: ghcr.io/carmelosantana/bubblescreen:latest
+    runtime: nvidia
+    restart: unless-stopped
+    cap_add:
+      - SYS_TTY_CONFIG            # chvt / VT_ACTIVATE (fall back to privileged if TrueNAS blocks it)
+    devices:
+      - /dev/tty0:/dev/tty0
+      - /dev/console:/dev/console
+      - /dev/input:/dev/input
+    device_cgroup_rules:
+      - 'c 13:* rmw'             # /dev/input evdev (char major 13)
+    environment:
+      NVIDIA_DRIVER_CAPABILITIES: utility
+      NVIDIA_VISIBLE_DEVICES: all
+      MODE: smart
+      ROTATE_INTERVAL: "20"
+      GPU_THRESHOLD: "50"
+      GPU_THRESHOLD_HOLD: "3"
+      GPU_HYSTERESIS: "15"
+      SCREEN_TIMEOUT: "1800"
+      WAKE_ON_GPU: "true"
+      TARGET_VT: auto
+      BTOP_PRESET: "0"
