@@ -10,7 +10,9 @@ BubbleScreen is a featherweight TrueNAS Scale "screensaver" that takes over the
 server's physical console with a live system-monitoring dashboard (CPU, RAM,
 temperature, and NVIDIA GPU). When toggled **on** it seizes the console; when
 toggled **off** the normal TrueNAS console returns. It ships as a TrueNAS Custom
-App (Docker Compose) so the on/off toggle is native to the TrueNAS Apps UI.
+App (Docker Compose) pulling a prebuilt image published to the GitHub Container
+Registry (GHCR), so the on/off toggle is native to the TrueNAS Apps UI and no
+local build is needed.
 
 Idle footprint target: **under ~50 MB RAM.** Low RAM usage is a hard
 requirement — the host runs VMs and NVIDIA AI/GPU workloads (e.g. ComfyUI) that
@@ -147,9 +149,35 @@ is independently testable.
    - `restart: unless-stopped`.
    - All BubbleScreen env vars surfaced with defaults.
 
-7. **`README.md`** — TrueNAS Scale install (Custom App via compose), env
-   reference, and troubleshooting (VT selection, cap vs privileged, verifying
-   the NVIDIA runtime).
+7. **`README.md`** — TrueNAS Scale install (Custom App via compose pulling the
+   GHCR image), env reference, embedded screenshots (§5.9), and troubleshooting
+   (VT selection, cap vs privileged, verifying the NVIDIA runtime).
+
+8. **`.github/workflows/build.yml`** — CI that builds and publishes the image to
+   **GHCR**:
+   - Triggers: push to `main` and version tags (`v*`).
+   - `permissions: packages: write`; log in to `ghcr.io` with the built-in
+     `GITHUB_TOKEN`.
+   - Push `ghcr.io/${{ github.repository_owner }}/bubblescreen` tagged with
+     `latest` (on main), the semver tag, and the commit SHA. `linux/amd64` only
+     (NVIDIA/TrueNAS target).
+   - Uses `docker/build-push-action` with layer caching.
+   - *Interface:* consumes the repo. *Depends on:* Dockerfile, `.dockerignore`.
+
+9. **`scripts/screenshots.sh` + `docs/screenshots/`** — dev-time helper to
+   generate README images **without a physical monitor**: runs each view
+   (btop overview, nvtop GPU, split) in a headless pty via
+   `charmbracelet/freeze --execute` and renders PNGs into `docs/screenshots/`.
+   Images are committed for the README but **excluded from the image via
+   `.dockerignore`** (they are not needed at runtime). Live TUI capture is
+   imperfect; the helper documents fixed terminal size and a short warm-up so
+   frames show real data.
+   - *Interface:* run manually by a maintainer. *Depends on:* freeze, btop,
+     nvtop (not required by the container at runtime).
+
+10. **`.dockerignore`** — keeps the image slim and reproducible: excludes
+    `docs/`, `.github/`, `scripts/screenshots.sh`, screenshots, git metadata, and
+    the spec. Only the runtime scripts + tmux.conf are copied into the image.
 
 ## 6. Configuration (environment variables)
 
@@ -193,7 +221,8 @@ idle. Base image slim; no X, no desktop, no CUDA image, no database.
 - **entrypoint.sh** — verify the exit trap restores the VT and un-blanks
   (mock chvt/setterm; assert calls on TERM/INT/EXIT).
 - **Container build** — CI builds the image and checks the tools launch
-  (`btop --version`, `nvtop --version`, `tmux -V`).
+  (`btop --version`, `nvtop --version`, `tmux -V`), then pushes to GHCR on
+  `main`/tags. A `.dockerignore` check keeps docs/screenshots out of the image.
 - **Manual on-hardware** — verify console takeover, NVIDIA data visibility
   (requires the NVIDIA runtime), threshold switching, and DPMS power-off/wake on
   the real TrueNAS box. Documented as a manual checklist in the README.
