@@ -91,10 +91,12 @@ main() {
   "${_here}/controller.sh" &
   controller_pid=$!
 
-  # The dashboard runs on a Linux VT; the tmux client needs a valid TERM to
-  # initialize the terminal. The container's PID-1 env has no TERM, so tmux
-  # attach would exit 1 ("open terminal failed") — set it for the VT console.
-  export TERM="${TERM:-linux}"
+  # The dashboard always runs on a Linux VT, so TERM must be "linux". Set it
+  # unconditionally: the container env often ships TERM=dumb (a no-capability
+  # type tmux cannot use), and an empty/dumb TERM makes the tmux client exit 1
+  # ("open terminal failed"). Do NOT use ${TERM:-linux} — that keeps a bad
+  # non-empty value like "dumb".
+  export TERM=linux
 
   # Attach the session on the chosen VT; openvt runs us there and chvt-switches.
   # openvt returns non-zero if it cannot open the VT (privileged/host VT nodes)

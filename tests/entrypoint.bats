@@ -95,12 +95,15 @@ setup() {
   openvt()    { printf 'TERM=%s\n' "${TERM:-UNSET}" >> "$BS_LOG"; return 0; }
   export -f setterm chvt fgconsole gpm openvt
   TARGET_VT=2; SCREEN_TIMEOUT=1800; BS_TMUX=true
-  unset TERM   # mimic the container PID-1 env; main must set it
+  # Reproduce the real container env: TERM=dumb (a bad, NON-EMPTY value that
+  # ${TERM:-linux} would wrongly keep). main must override it to linux.
+  export TERM=dumb
 
   ( main ) || true
 
   run cat "$log"
   [[ "$output" == *"TERM=linux"* ]]
+  [[ "$output" != *"TERM=dumb"* ]]
 }
 
 @test "main restores the console on exit (trap fires with orig_vt bound)" {
