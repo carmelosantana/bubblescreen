@@ -23,6 +23,30 @@ bs_pick_vt() {
   printf '7\n'
 }
 
+# Console tools required to seize/switch a VT. openvt/chvt/fgconsole ship in the
+# 'kbd' package (NOT util-linux — that only provides setterm).
+bs_preflight() {
+  local t missing=()
+  for t in ${BS_REQUIRED_TOOLS:-openvt chvt}; do
+    command -v "$t" >/dev/null 2>&1 || missing+=("$t")
+  done
+  if (( ${#missing[@]} )); then
+    echo "bubblescreen: missing console tools: ${missing[*]} — install the 'kbd' package" >&2
+    return 1
+  fi
+  return 0
+}
+
+# Fail safe: log a clear, actionable error and HOLD (do not exit). Exiting would
+# let 'restart: unless-stopped' tight-loop, and each restart re-inits/tears down
+# the NVIDIA GPU context — spamming knvlinkCoreShutdownDeviceLinks on the console.
+# Holding keeps the container up and quiet until the operator fixes the config.
+bs_hold() {
+  echo "bubblescreen: FATAL: $1" >&2
+  echo "bubblescreen: holding without restart to avoid GPU/NVLink churn — fix the config and redeploy (see README troubleshooting)." >&2
+  sleep infinity
+}
+
 bs_set_blank() {
   local vt="$1" timeout="$2" min
   min="$(bs_blank_minutes "$timeout")"
@@ -39,9 +63,17 @@ bs_restore() {
 }
 
 main() {
-  local orig_vt vt
+  local orig_vt vt controller_pid
   orig_vt="$(fgconsole 2>/dev/null || echo 1)"
   vt="$(bs_pick_vt)"
+
+  # Verify the console tools exist BEFORE touching anything — a missing binary
+  # must surface as a clear held error, not a silent restart loop.
+  if ! bs_preflight; then
+    bs_hold "required console tools missing (need: ${BS_REQUIRED_TOOLS:-openvt chvt})"
+    return
+  fi
+
   # Bind orig_vt at trap-install time (double-quoted) so restore still has its
   # value after main returns and the EXIT trap fires — a single-quoted body
   # would expand the now-out-of-scope local under set -u and abort before
@@ -57,11 +89,17 @@ main() {
 
   # Drive behavior (smart/rotate) in the background.
   "${_here}/controller.sh" &
-  local controller_pid=$!
+  controller_pid=$!
 
   # Attach the session on the chosen VT; openvt runs us there and chvt-switches.
-  openvt -c "$vt" -s -w -- \
-    "${BS_TMUX:-tmux}" -f "${_here}/tmux.conf" attach-session -t "$BS_SESSION" || true
+  # openvt returns non-zero if it cannot open the VT device (needs privileged /
+  # host VT nodes). Do NOT swallow that with `|| true` — hold instead of looping.
+  if ! openvt -c "$vt" -s -w -- \
+        "${BS_TMUX:-tmux}" -f "${_here}/tmux.conf" attach-session -t "$BS_SESSION"; then
+    kill "$controller_pid" 2>/dev/null || true
+    bs_hold "could not attach to VT $vt via openvt — the container likely needs 'privileged: true' (or the host VT device nodes) to seize the console"
+    return
+  fi
 
   kill "$controller_pid" 2>/dev/null || true
 }

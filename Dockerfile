@@ -1,10 +1,11 @@
 FROM debian:bookworm-slim
 
 # nvtop ships in Debian's "contrib" component; the base image enables only "main".
+# kbd provides openvt/chvt/fgconsole (VT takeover); util-linux only has setterm.
 RUN sed -i 's/^Components: main$/Components: main contrib/' /etc/apt/sources.list.d/debian.sources \
  && apt-get update \
  && apt-get install -y --no-install-recommends \
-      btop nvtop tmux gpm util-linux tini ca-certificates \
+      btop nvtop tmux gpm util-linux kbd tini ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
 COPY src/ /app/

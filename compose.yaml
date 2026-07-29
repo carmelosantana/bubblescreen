@@ -3,14 +3,12 @@ services:
     image: ghcr.io/carmelosantana/bubblescreen:latest
     runtime: nvidia
     restart: unless-stopped
-    cap_add:
-      - SYS_TTY_CONFIG            # chvt / VT_ACTIVATE (fall back to privileged if TrueNAS blocks it)
-    devices:
-      - /dev/tty0:/dev/tty0
-      - /dev/console:/dev/console
-      - /dev/input:/dev/input
-    device_cgroup_rules:
-      - 'c 13:* rmw'             # /dev/input evdev (char major 13)
+    # Seizing the physical console needs the host's VT device nodes (/dev/tty1..63,
+    # which openvt opens) plus VT-config privileges. On TrueNAS the least-privilege
+    # set (SYS_TTY_CONFIG + a couple of tty devices) is NOT enough — openvt can't
+    # open its target VT. privileged gives the container the host /dev, same as the
+    # steam-headless approach this is modelled on.
+    privileged: true
     environment:
       NVIDIA_DRIVER_CAPABILITIES: utility
       NVIDIA_VISIBLE_DEVICES: all
