@@ -57,6 +57,7 @@ bs_restore() {
   local original="$1"
   # Disarm the trap so a signal-triggered restore doesn't re-run on EXIT.
   trap - EXIT INT TERM
+  echo "bubblescreen: restoring console -> switching to VT $original" >&2
   "${BS_TMUX:-tmux}" kill-server 2>/dev/null || true
   setterm --term linux --blank 0 --powerdown 0 >/dev/null 2>&1 || true
   chvt "$original" 2>/dev/null || true
@@ -66,6 +67,12 @@ main() {
   local orig_vt vt controller_pid
   orig_vt="$(fgconsole 2>/dev/null || echo 1)"
   vt="$(bs_pick_vt)"
+
+  # Never restore to our OWN dashboard VT. If a prior instance already switched
+  # the console to $vt, fgconsole reports $vt here, and restoring to it on exit
+  # would leave the dashboard frame on screen (chvt to the current VT is a no-op).
+  # Fall back to VT 1, the TrueNAS console.
+  if [[ "$orig_vt" == "$vt" ]]; then orig_vt=1; fi
 
   # Verify the console tools exist BEFORE touching anything — a missing binary
   # must surface as a clear held error, not a silent restart loop.
@@ -102,17 +109,27 @@ main() {
   # -f (force): take over the VT even if it is "in use" — a prior instance that
   # was hard-killed (docker rm) leaves VT $vt allocated, and without -f openvt
   # aborts with "vt N is in use". A kiosk always claims its VT.
-  # openvt returns non-zero if it cannot open the VT (privileged/host VT nodes)
-  # OR if the inner tmux attach fails (-w forwards its exit code). Do NOT swallow
-  # that with `|| true` — hold instead of looping.
-  if ! openvt -f -c "$vt" -s -w -- \
-        "${BS_TMUX:-tmux}" -f "${_here}/tmux.conf" attach-session -t "$BS_SESSION"; then
-    kill "$controller_pid" 2>/dev/null || true
+  #
+  # Run openvt in the BACKGROUND and `wait` on it — NOT in the foreground. A
+  # foreground openvt -w blocks bash so a SIGTERM (docker stop → tini → us) can't
+  # run the EXIT/TERM trap until openvt returns, which it never does; Docker then
+  # SIGKILLs us and the console is never restored (last frame left on screen).
+  # `wait` is interruptible, so the trap fires promptly and bs_restore switches
+  # the display back to the original VT.
+  openvt -f -c "$vt" -s -w -- \
+      "${BS_TMUX:-tmux}" -f "${_here}/tmux.conf" attach-session -t "$BS_SESSION" &
+  local openvt_pid=$!
+  wait "$openvt_pid"
+  local rc=$?
+
+  kill "$controller_pid" 2>/dev/null || true
+
+  # rc < 128 and non-zero => openvt/tmux attach genuinely failed (not a signal,
+  # which yields 128+signum and means we're shutting down). Hold, don't loop.
+  if (( rc != 0 && rc < 128 )); then
     bs_hold "openvt/tmux attach to VT $vt failed — needs 'privileged: true' (host VT nodes) to seize the console, and a valid TERM ($TERM) for the tmux client"
     return
   fi
-
-  kill "$controller_pid" 2>/dev/null || true
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
