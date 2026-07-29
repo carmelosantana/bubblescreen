@@ -91,13 +91,19 @@ main() {
   "${_here}/controller.sh" &
   controller_pid=$!
 
+  # The dashboard runs on a Linux VT; the tmux client needs a valid TERM to
+  # initialize the terminal. The container's PID-1 env has no TERM, so tmux
+  # attach would exit 1 ("open terminal failed") — set it for the VT console.
+  export TERM="${TERM:-linux}"
+
   # Attach the session on the chosen VT; openvt runs us there and chvt-switches.
-  # openvt returns non-zero if it cannot open the VT device (needs privileged /
-  # host VT nodes). Do NOT swallow that with `|| true` — hold instead of looping.
+  # openvt returns non-zero if it cannot open the VT (privileged/host VT nodes)
+  # OR if the inner tmux attach fails (-w forwards its exit code). Do NOT swallow
+  # that with `|| true` — hold instead of looping.
   if ! openvt -c "$vt" -s -w -- \
         "${BS_TMUX:-tmux}" -f "${_here}/tmux.conf" attach-session -t "$BS_SESSION"; then
     kill "$controller_pid" 2>/dev/null || true
-    bs_hold "could not attach to VT $vt via openvt — the container likely needs 'privileged: true' (or the host VT device nodes) to seize the console"
+    bs_hold "openvt/tmux attach to VT $vt failed — needs 'privileged: true' (host VT nodes) to seize the console, and a valid TERM ($TERM) for the tmux client"
     return
   fi
 

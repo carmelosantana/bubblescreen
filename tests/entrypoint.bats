@@ -79,6 +79,30 @@ setup() {
   [[ "$output" == *"HOLD:"* ]]
 }
 
+@test "main attaches with TERM=linux so the tmux client can init the VT" {
+  local stubdir="$BATS_TEST_TMPDIR/stub3"; mkdir -p "$stubdir"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$stubdir/layout.sh"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$stubdir/controller.sh"
+  : > "$stubdir/tmux.conf"; chmod +x "$stubdir/layout.sh" "$stubdir/controller.sh"
+  _here="$stubdir"
+
+  local log="$BATS_TEST_TMPDIR/term.log"; : > "$log"; export BS_LOG="$log"
+  setterm()   { :; }
+  chvt()      { :; }
+  fgconsole() { printf '1\n'; }
+  gpm()       { :; }
+  # Record the TERM openvt (hence the tmux client) is given, then succeed.
+  openvt()    { printf 'TERM=%s\n' "${TERM:-UNSET}" >> "$BS_LOG"; return 0; }
+  export -f setterm chvt fgconsole gpm openvt
+  TARGET_VT=2; SCREEN_TIMEOUT=1800; BS_TMUX=true
+  unset TERM   # mimic the container PID-1 env; main must set it
+
+  ( main ) || true
+
+  run cat "$log"
+  [[ "$output" == *"TERM=linux"* ]]
+}
+
 @test "main restores the console on exit (trap fires with orig_vt bound)" {
   # Stub the scripts main invokes by path, and point _here at them.
   local stubdir="$BATS_TEST_TMPDIR/stub"
