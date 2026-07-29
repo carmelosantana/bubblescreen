@@ -70,3 +70,42 @@ setup() { source "${BATS_TEST_DIRNAME}/../src/lib.sh"; }
   run bs_blank_minutes 7200
   [ "$output" = "60" ]
 }
+
+@test "bs_app_cmd maps known apps to commands" {
+  run bs_app_cmd htop
+  [ "$output" = "htop" ]
+  run bs_app_cmd nvtop
+  [ "$output" = "nvtop" ]
+}
+
+@test "bs_app_cmd fails on an unknown app" {
+  run bs_app_cmd bogus
+  [ "$status" -ne 0 ]
+}
+
+@test "bs_parse_apps keeps a valid list in order, space-joined" {
+  run bs_parse_apps "htop,nvtop"
+  [ "$output" = "htop nvtop" ]
+}
+
+@test "bs_parse_apps accepts a single app" {
+  run bs_parse_apps "nvtop"
+  [ "$output" = "nvtop" ]
+}
+
+@test "bs_parse_apps trims whitespace" {
+  run bs_parse_apps " htop , nvtop "
+  [ "$output" = "htop nvtop" ]
+}
+
+@test "bs_parse_apps drops unknown apps but keeps valid ones" {
+  run bs_parse_apps "htop,bogus"
+  [ "$output" = "htop" ]
+}
+
+@test "bs_parse_apps falls back to the default when empty or all-invalid" {
+  run bs_parse_apps ""
+  [ "$output" = "htop nvtop" ]
+  run bs_parse_apps "bogus,nope"
+  [ "$output" = "htop nvtop" ]
+}

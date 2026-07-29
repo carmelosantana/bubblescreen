@@ -20,6 +20,7 @@ RUN chmod +x /app/*.sh
 # GPU data is injected by the NVIDIA container runtime at run time.
 ENV NVIDIA_DRIVER_CAPABILITIES=utility \
     NVIDIA_VISIBLE_DEVICES=all \
+    APPS=htop,nvtop \
     MODE=smart \
     ROTATE_INTERVAL=20 \
     GPU_THRESHOLD=50 \

@@ -28,6 +28,15 @@ The NVIDIA runtime must be enabled on the host (TrueNAS Apps → NVIDIA support)
 
 ## Modes
 
+`APPS` picks *which* tools to show; `MODE` picks *how* they're arranged.
+
+**`APPS`** (default `htop,nvtop`):
+- `htop,nvtop` — both tools; `MODE` arranges them (below).
+- `nvtop` — only the GPU monitor, full-screen. `MODE` is ignored.
+- `htop` — only CPU/RAM/temp, full-screen. `MODE` is ignored.
+
+**`MODE`** (only meaningful with two apps):
+
 | MODE | Behavior |
 |---|---|
 | `smart` (default) | Overview normally; switches to the GPU view when GPU util is sustained above `GPU_THRESHOLD`, returns when it drops. Wakes the display on GPU activity. |
@@ -38,7 +47,8 @@ The NVIDIA runtime must be enabled on the host (TrueNAS Apps → NVIDIA support)
 
 | Var | Default | Meaning |
 |---|---|---|
-| `MODE` | `smart` | `split` \| `rotate` \| `smart` |
+| `APPS` | `htop,nvtop` | which tools to show: `htop`, `nvtop`, or both |
+| `MODE` | `smart` | `split` \| `rotate` \| `smart` (only applies with two apps) |
 | `ROTATE_INTERVAL` | `20` | seconds per view (rotate) |
 | `GPU_THRESHOLD` | `50` | GPU util % that triggers the GPU view |
 | `GPU_THRESHOLD_HOLD` | `3` | seconds above threshold before switching |

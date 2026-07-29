@@ -12,6 +12,7 @@ source "${_here}/lib.sh"
 : "${GPU_HYSTERESIS:=15}"
 : "${WAKE_ON_GPU:=true}"
 : "${ROTATE_INTERVAL:=20}"
+: "${APPS:=htop,nvtop}"
 : "${BS_SESSION:=bubblescreen}"
 : "${BS_TMUX:=tmux}"
 
@@ -70,6 +71,13 @@ bs_rotate_loop() {
 }
 
 main() {
+  # With a single app there is only one full-screen window — no overview/gpu to
+  # switch between, so smart/rotate have nothing to drive regardless of MODE.
+  local apps; read -ra apps <<< "$(bs_parse_apps "$APPS")"
+  if (( ${#apps[@]} < 2 )); then
+    while true; do sleep 3600; done
+  fi
+
   case "$MODE" in
     smart)  while true; do bs_tick; sleep 1; done ;;
     rotate) bs_rotate_loop ;;

@@ -12,6 +12,7 @@ services:
     environment:
       NVIDIA_DRIVER_CAPABILITIES: utility
       NVIDIA_VISIBLE_DEVICES: all
+      APPS: htop,nvtop            # which tools to show: htop, nvtop, or both
       MODE: smart
       ROTATE_INTERVAL: "20"
       GPU_THRESHOLD: "50"
