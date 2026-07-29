@@ -3,9 +3,10 @@
 set -euo pipefail
 
 : "${MODE:=smart}"
-: "${BTOP_PRESET:=0}"
 : "${BS_TMUX:=tmux}"
-: "${BS_OVERVIEW_CMD:=btop -p ${BTOP_PRESET}}"
+# htop renders with console-native ACS line-drawing (no UTF-8 locale needed) and
+# adapts to narrow panes — unlike btop, which needs a UTF-8 locale and >=80 cols.
+: "${BS_OVERVIEW_CMD:=htop}"
 : "${BS_GPU_CMD:=nvtop}"
 
 bs_build_layout() {

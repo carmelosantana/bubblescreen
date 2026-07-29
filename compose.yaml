@@ -20,4 +20,3 @@ services:
       SCREEN_TIMEOUT: "1800"
       WAKE_ON_GPU: "true"
       TARGET_VT: auto
-      BTOP_PRESET: "0"

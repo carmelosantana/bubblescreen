@@ -87,7 +87,7 @@ main() {
   # bs_restore ever runs, stranding the console.
   trap "bs_restore '$orig_vt'" EXIT INT TERM
 
-  # Console mouse (wheel scroll) for tmux/btop/nvtop.
+  # Console mouse (wheel scroll) for tmux/htop/nvtop.
   gpm -m /dev/input/mice -t imps2 >/dev/null 2>&1 || true
 
   # Build the session and set the kernel blank timer.

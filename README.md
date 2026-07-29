@@ -10,10 +10,12 @@ toggle it off and the normal TrueNAS console returns. Idle footprint: under
 
 ## How it works
 
-A slim Debian container runs `tmux` driving `btop` (CPU/RAM/temp) and `nvtop`
+A slim Debian container runs `tmux` driving `htop` (CPU/RAM/temp) and `nvtop`
 (NVIDIA GPU) on a free virtual terminal. GPU data comes from the host driver via
 the NVIDIA container runtime. It replaces the console the same way steam-headless
-does — minus the entire graphical desktop.
+does — minus the entire graphical desktop. (`htop` is used rather than `btop`
+because it renders natively on a raw Linux console — no UTF-8 locale or wide
+terminal required.)
 
 ## Install (TrueNAS Scale)
 
@@ -29,7 +31,7 @@ The NVIDIA runtime must be enabled on the host (TrueNAS Apps → NVIDIA support)
 | MODE | Behavior |
 |---|---|
 | `smart` (default) | Overview normally; switches to the GPU view when GPU util is sustained above `GPU_THRESHOLD`, returns when it drops. Wakes the display on GPU activity. |
-| `split` | btop (left) + nvtop (right), static. |
+| `split` | htop (left) + nvtop (right), static. |
 | `rotate` | Full-screen views cycling every `ROTATE_INTERVAL` seconds. |
 
 ## Configuration
@@ -44,7 +46,6 @@ The NVIDIA runtime must be enabled on the host (TrueNAS Apps → NVIDIA support)
 | `SCREEN_TIMEOUT` | `1800` | idle seconds before the monitor powers off (`0` = never) |
 | `WAKE_ON_GPU` | `true` | wake the display + show GPU on a threshold crossing |
 | `TARGET_VT` | `auto` | VT to use (`auto` picks a free one) |
-| `BTOP_PRESET` | `0` | btop layout preset |
 
 `SCREEN_TIMEOUT` is applied via the kernel console blanker, which works in whole
 minutes: the value is rounded to the nearest minute and clamped to 1–60 minutes
@@ -71,9 +72,9 @@ display (kernel-handled). The display powers off after `SCREEN_TIMEOUT` idle.
   the host; the container needs `NVIDIA_DRIVER_CAPABILITIES=utility`.
 - **Wrong VT / console flicker:** pin `TARGET_VT` to a known free VT.
 - **Display won't power off:** the monitor must honor VESA DPMS over the console.
-- **nvtop shows but btop doesn't (a pane is missing):** btop needs a UTF-8 locale
-  or it exits with "No UTF-8 locale detected". The image sets `LANG=C.UTF-8`; if
-  you override the environment, keep a UTF-8 locale.
+- **Garbled box-drawing characters on the console:** the tools must render with
+  ACS line-drawing, not UTF-8. This image sets no locale on purpose; do not force
+  a UTF-8 `LANG`/`LC_ALL`, or a raw VT console will show `âöç…` garbage.
 
 ## Development
 

@@ -23,19 +23,20 @@ jobs:
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Smoke test — btop starts under the image locale
+      - name: Smoke test — htop + nvtop launch (even in a narrow split pane)
         run: |
           docker buildx build --load -t bs:ci --cache-from type=gha .
           docker run --rm --entrypoint bash bs:ci -c '
-            echo "LANG=$LANG"
-            echo "$LANG" | grep -qiE "utf-?8" || { echo "FAIL: image LANG is not UTF-8 — btop will not start"; exit 1; }
+            for t in htop nvtop tmux openvt; do command -v "$t" >/dev/null || { echo "FAIL: $t missing"; exit 1; }; done
             export TERM=linux
-            tmux new-session -d -s t -x 120 -y 30 "btop -p 0 2>/tmp/err; echo EXITED >/tmp/exited; sleep 30"
+            # 63 cols is what a split pane gave btop (which needs 80 and refused);
+            # htop must run fine at that width.
+            tmux new-session -d -s t -x 63 -y 24 "htop 2>/tmp/err; echo EXITED >/tmp/exited; sleep 30"
             sleep 3
+            if [ -f /tmp/exited ]; then echo "FAIL: htop exited on start"; cat /tmp/err; exit 1; fi
             tmux capture-pane -t t -p > /tmp/cap 2>/dev/null || true
-            if grep -qi "No UTF-8" /tmp/err /tmp/cap 2>/dev/null; then echo "FAIL: btop locale regression"; cat /tmp/err; exit 1; fi
-            if [ -f /tmp/exited ]; then echo "FAIL: btop exited on start"; cat /tmp/err; exit 1; fi
-            echo "PASS: btop is running"
+            grep -qiE "too small|not a terminal|error" /tmp/cap && { echo "FAIL: htop render error"; cat /tmp/cap; exit 1; }
+            echo "PASS: htop is running at 63 cols"
           '
 
       - name: Log in to GHCR
