@@ -11,6 +11,11 @@ RUN sed -i 's/^Components: main$/Components: main contrib/' /etc/apt/sources.lis
 COPY src/ /app/
 RUN chmod +x /app/*.sh
 
+# btop refuses to start without a UTF-8 locale ("No UTF-8 locale detected"), and
+# the slim base sets none. C.UTF-8 is built into glibc — no locale-gen needed.
+ENV LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
+
 # GPU data is injected by the NVIDIA container runtime at run time.
 ENV NVIDIA_DRIVER_CAPABILITIES=utility \
     NVIDIA_VISIBLE_DEVICES=all \

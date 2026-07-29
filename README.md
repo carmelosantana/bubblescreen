@@ -71,6 +71,9 @@ display (kernel-handled). The display powers off after `SCREEN_TIMEOUT` idle.
   the host; the container needs `NVIDIA_DRIVER_CAPABILITIES=utility`.
 - **Wrong VT / console flicker:** pin `TARGET_VT` to a known free VT.
 - **Display won't power off:** the monitor must honor VESA DPMS over the console.
+- **nvtop shows but btop doesn't (a pane is missing):** btop needs a UTF-8 locale
+  or it exits with "No UTF-8 locale detected". The image sets `LANG=C.UTF-8`; if
+  you override the environment, keep a UTF-8 locale.
 
 ## Development
 
