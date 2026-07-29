@@ -79,6 +79,26 @@ setup() {
   [[ "$output" == *"HOLD:"* ]]
 }
 
+@test "main forces the VT takeover with openvt -f (VT may be in use from a prior run)" {
+  local stubdir="$BATS_TEST_TMPDIR/stub4"; mkdir -p "$stubdir"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$stubdir/layout.sh"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$stubdir/controller.sh"
+  : > "$stubdir/tmux.conf"; chmod +x "$stubdir/layout.sh" "$stubdir/controller.sh"
+  _here="$stubdir"
+
+  local log="$BATS_TEST_TMPDIR/args.log"; : > "$log"; export BS_LOG="$log"
+  setterm() { :; }; chvt() { :; }; fgconsole() { printf '1\n'; }; gpm() { :; }
+  openvt()  { printf 'ARGS=%s\n' "$*" >> "$BS_LOG"; return 0; }
+  export -f setterm chvt fgconsole gpm openvt
+  TARGET_VT=2; SCREEN_TIMEOUT=1800; BS_TMUX=true
+
+  ( main ) || true
+
+  run cat "$log"
+  # openvt's own flags must lead with -f -c (force the specific VT).
+  [[ "$output" == *"ARGS=-f -c 2 "* ]]
+}
+
 @test "main attaches with TERM=linux so the tmux client can init the VT" {
   local stubdir="$BATS_TEST_TMPDIR/stub3"; mkdir -p "$stubdir"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$stubdir/layout.sh"

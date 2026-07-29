@@ -99,10 +99,13 @@ main() {
   export TERM=linux
 
   # Attach the session on the chosen VT; openvt runs us there and chvt-switches.
+  # -f (force): take over the VT even if it is "in use" — a prior instance that
+  # was hard-killed (docker rm) leaves VT $vt allocated, and without -f openvt
+  # aborts with "vt N is in use". A kiosk always claims its VT.
   # openvt returns non-zero if it cannot open the VT (privileged/host VT nodes)
   # OR if the inner tmux attach fails (-w forwards its exit code). Do NOT swallow
   # that with `|| true` — hold instead of looping.
-  if ! openvt -c "$vt" -s -w -- \
+  if ! openvt -f -c "$vt" -s -w -- \
         "${BS_TMUX:-tmux}" -f "${_here}/tmux.conf" attach-session -t "$BS_SESSION"; then
     kill "$controller_pid" 2>/dev/null || true
     bs_hold "openvt/tmux attach to VT $vt failed — needs 'privileged: true' (host VT nodes) to seize the console, and a valid TERM ($TERM) for the tmux client"
