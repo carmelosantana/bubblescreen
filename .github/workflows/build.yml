@@ -27,7 +27,7 @@ jobs:
         run: |
           docker buildx build --load -t bs:ci --cache-from type=gha .
           docker run --rm --entrypoint bash bs:ci -c '
-            for t in htop nvtop tmux openvt; do command -v "$t" >/dev/null || { echo "FAIL: $t missing"; exit 1; }; done
+            for t in htop nvtop tmux openvt ddcutil modprobe; do command -v "$t" >/dev/null || { echo "FAIL: $t missing"; exit 1; }; done
             export TERM=linux
             # 63 cols is what a split pane gave btop (which needs 80 and refused);
             # htop must run fine at that width.

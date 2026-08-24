@@ -51,24 +51,35 @@ setup() { source "${BATS_TEST_DIRNAME}/../src/lib.sh"; }
   [ "$output" = "no" ]
 }
 
-@test "bs_blank_minutes 0 disables" {
-  run bs_blank_minutes 0
-  [ "$output" = "0" ]
+@test "bs_should_sleep yes once idle reaches the timeout" {
+  run bs_should_sleep 300 300
+  [ "$output" = "yes" ]
+  run bs_should_sleep 301 300
+  [ "$output" = "yes" ]
 }
 
-@test "bs_blank_minutes rounds seconds to minutes" {
-  run bs_blank_minutes 1800
-  [ "$output" = "30" ]
+@test "bs_should_sleep no while idle is below the timeout" {
+  run bs_should_sleep 299 300
+  [ "$output" = "no" ]
+  run bs_should_sleep 0 300
+  [ "$output" = "no" ]
 }
 
-@test "bs_blank_minutes floors to at least 1 for small positive timeouts" {
-  run bs_blank_minutes 20
-  [ "$output" = "1" ]
+@test "bs_should_sleep never sleeps when timeout is 0" {
+  run bs_should_sleep 99999 0
+  [ "$output" = "no" ]
 }
 
-@test "bs_blank_minutes clamps to 60" {
-  run bs_blank_minutes 7200
-  [ "$output" = "60" ]
+@test "bs_ddc_parse_bus extracts the first i2c bus number from ddcutil detect" {
+  local out; out=$'Display 1\n   I2C bus:  /dev/i2c-2\n   EDID synopsis:\n      Model: ASUS VS247'
+  run bs_ddc_parse_bus "$out"
+  [ "$status" -eq 0 ]
+  [ "$output" = "2" ]
+}
+
+@test "bs_ddc_parse_bus fails when no display/bus is present" {
+  run bs_ddc_parse_bus $'No displays found.\nParsed 0 buses'
+  [ "$status" -ne 0 ]
 }
 
 @test "bs_app_cmd maps known apps to commands" {

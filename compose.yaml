@@ -9,6 +9,14 @@ services:
     # open its target VT. privileged gives the container the host /dev, same as the
     # steam-headless approach this is modelled on.
     privileged: true
+    # The console framebuffer (efifb) can't power a monitor off — that only works
+    # over the display's DDC/CI i2c lines. The NVIDIA driver exposes those buses,
+    # but they need the host's i2c-dev module: mounting /lib/modules lets the
+    # (privileged) container modprobe it at startup. If your host already loads
+    # i2c-dev at boot, this mount is harmless; if it can't, BubbleScreen just
+    # leaves the screen on. Read-only.
+    volumes:
+      - /lib/modules:/lib/modules:ro
     environment:
       NVIDIA_DRIVER_CAPABILITIES: utility
       NVIDIA_VISIBLE_DEVICES: all
@@ -18,6 +26,6 @@ services:
       GPU_THRESHOLD: "50"
       GPU_THRESHOLD_HOLD: "3"
       GPU_HYSTERESIS: "15"
-      SCREEN_TIMEOUT: "1800"
+      SCREEN_TIMEOUT: "300"       # sleep the monitor after 5 min of no input
       WAKE_ON_GPU: "true"
       TARGET_VT: auto

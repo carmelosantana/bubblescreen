@@ -55,13 +55,24 @@ bs_parse_apps() {
   printf '%s\n' "${out[*]}"
 }
 
-# Translate SCREEN_TIMEOUT seconds to a setterm blank/powerdown minute value.
-# 0 (or less) => never blank. Otherwise round to nearest minute, floor 1, cap 60.
-bs_blank_minutes() {
-  local sec="$1" min
-  if (( sec <= 0 )); then printf '0\n'; return; fi
-  min=$(( (sec + 30) / 60 ))
-  (( min < 1 )) && min=1
-  (( min > 60 )) && min=60
-  printf '%s\n' "$min"
+# Should the display sleep now? yes iff a positive timeout is set and the input
+# idle time has reached it. Compared in whole seconds — DDC/CI power control is
+# driven directly, with no kernel-blank minute rounding.
+bs_should_sleep() {
+  local idle="$1" timeout="$2"
+  if (( timeout > 0 )) && (( idle >= timeout )); then printf 'yes\n'; else printf 'no\n'; fi
+}
+
+# Parse `ddcutil detect` output and print the i2c bus number of the first
+# DDC/CI-capable display (the digits in its /dev/i2c-N line). Returns non-zero
+# when no display/bus is present, so the caller can degrade to no power control.
+bs_ddc_parse_bus() {
+  local line bus=""
+  while IFS= read -r line; do
+    if [[ "$line" =~ /dev/i2c-([0-9]+) ]]; then
+      bus="${BASH_REMATCH[1]}"; break
+    fi
+  done <<< "${1:-}"
+  [[ -n "$bus" ]] || return 1
+  printf '%s\n' "$bus"
 }

@@ -53,18 +53,39 @@ The NVIDIA runtime must be enabled on the host (TrueNAS Apps → NVIDIA support)
 | `GPU_THRESHOLD` | `50` | GPU util % that triggers the GPU view |
 | `GPU_THRESHOLD_HOLD` | `3` | seconds above threshold before switching |
 | `GPU_HYSTERESIS` | `15` | % below threshold before returning |
-| `SCREEN_TIMEOUT` | `1800` | idle seconds before the monitor powers off (`0` = never) |
-| `WAKE_ON_GPU` | `true` | wake the display + show GPU on a threshold crossing |
+| `SCREEN_TIMEOUT` | `300` | seconds of no keyboard/mouse input before the monitor sleeps (`0` = never) |
+| `WAKE_ON_GPU` | `true` | a GPU spike wakes the monitor and shows the GPU view |
 | `TARGET_VT` | `auto` | VT to use (`auto` picks a free one) |
 
-`SCREEN_TIMEOUT` is applied via the kernel console blanker, which works in whole
-minutes: the value is rounded to the nearest minute and clamped to 1–60 minutes
-(`0` = never).
+### How the monitor sleeps and wakes
+
+The Linux console runs on a firmware framebuffer (`efifb`) that can only paint
+the screen black — it can't signal a monitor to actually power down, and a
+constantly-redrawing dashboard would keep the kernel's own blank timer from ever
+firing anyway. So BubbleScreen powers the monitor off the way a monitor's own
+menu does: over **DDC/CI**, the control channel on the display cable, using
+`ddcutil`. The NVIDIA GPU exposes those i2c buses.
+
+- **Sleeps** after `SCREEN_TIMEOUT` seconds with no keyboard or mouse input.
+  Idle is measured from real input events (`/dev/input`), not screen redraws.
+- **Wakes** instantly on any keypress or mouse movement.
+- **Wakes on a GPU spike** (when `WAKE_ON_GPU=true`): crossing `GPU_THRESHOLD`
+  lights the screen and switches to the GPU view, then it sleeps again on the
+  idle timer if you don't touch anything — so a long GPU job flashes up once and
+  goes back to sleep rather than keeping the panel lit for hours.
+
+**Requirements for power-off:** the `i2c-dev` kernel module must be loaded on the
+host (the container tries to `modprobe` it via the bind-mounted `/lib/modules`;
+if your host loads it at boot that's fine too), and **DDC/CI must be enabled in
+your monitor's on-screen menu** (some ship with it off). Monitors that don't
+support DDC/CI power control are left on — BubbleScreen logs a clear line saying
+so at startup. Not every monitor honors DDC/CI; it's verified working on an ASUS
+VS247, for example.
 
 ## Controls
 
-Arrow keys switch views; mouse wheel scrolls. Any key/mouse input wakes the
-display (kernel-handled). The display powers off after `SCREEN_TIMEOUT` idle.
+Arrow keys switch views; mouse wheel scrolls. Any keyboard or mouse input wakes
+the monitor and resets the idle timer; it sleeps again after `SCREEN_TIMEOUT`.
 
 ## Troubleshooting
 
@@ -81,7 +102,12 @@ display (kernel-handled). The display powers off after `SCREEN_TIMEOUT` idle.
 - **No GPU data:** confirm the NVIDIA runtime is enabled and `nvidia-smi` works on
   the host; the container needs `NVIDIA_DRIVER_CAPABILITIES=utility`.
 - **Wrong VT / console flicker:** pin `TARGET_VT` to a known free VT.
-- **Display won't power off:** the monitor must honor VESA DPMS over the console.
+- **Display won't power off:** the startup log tells you which case you're in.
+  "no DDC/CI display found" means either `i2c-dev` isn't loaded on the host
+  (`modprobe i2c-dev`, or check the `/lib/modules` bind-mount) or the monitor's
+  DDC/CI setting is off — enable it in the monitor's on-screen menu (often called
+  "DDC/CI"). If `ddcutil detect` on the host finds the monitor but it still won't
+  sleep, that monitor ignores the DDC/CI power command and can't be slept.
 - **Garbled box-drawing characters on the console:** the tools must render with
   ACS line-drawing, not UTF-8. This image sets no locale on purpose; do not force
   a UTF-8 `LANG`/`LC_ALL`, or a raw VT console will show `âöç…` garbage.

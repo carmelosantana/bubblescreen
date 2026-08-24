@@ -4,10 +4,13 @@ FROM debian:bookworm-slim
 # kbd provides openvt/chvt/fgconsole (VT takeover); util-linux only has setterm.
 # htop is the CPU/RAM/temp monitor: it renders with console-native ACS line
 # drawing (no UTF-8 locale needed) and adapts to narrow panes.
+# ddcutil drives DDC/CI monitor power (the console framebuffer is efifb, which
+# can't DPMS — the only way to truly power the monitor off is over the display
+# cable's i2c/DDC lines). kmod provides modprobe to load i2c-dev at startup.
 RUN sed -i 's/^Components: main$/Components: main contrib/' /etc/apt/sources.list.d/debian.sources \
  && apt-get update \
  && apt-get install -y --no-install-recommends \
-      htop nvtop tmux gpm util-linux kbd tini ca-certificates \
+      htop nvtop tmux gpm util-linux kbd tini ca-certificates ddcutil kmod \
  && rm -rf /var/lib/apt/lists/*
 
 COPY src/ /app/
@@ -26,7 +29,7 @@ ENV NVIDIA_DRIVER_CAPABILITIES=utility \
     GPU_THRESHOLD=50 \
     GPU_THRESHOLD_HOLD=3 \
     GPU_HYSTERESIS=15 \
-    SCREEN_TIMEOUT=1800 \
+    SCREEN_TIMEOUT=300 \
     WAKE_ON_GPU=true \
     TARGET_VT=auto
 

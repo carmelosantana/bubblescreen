@@ -6,7 +6,7 @@ _here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${_here}/lib.sh"
 
 : "${MODE:=smart}"
-: "${SCREEN_TIMEOUT:=1800}"
+: "${SCREEN_TIMEOUT:=300}"
 : "${TARGET_VT:=auto}"
 : "${BS_SESSION:=bubblescreen}"
 export BS_SESSION
@@ -47,10 +47,13 @@ bs_hold() {
   sleep infinity
 }
 
-bs_set_blank() {
-  local vt="$1" timeout="$2" min
-  min="$(bs_blank_minutes "$timeout")"
-  setterm --term linux --blank "$min" --powerdown "$min" >/dev/null 2>&1 || true
+# Load i2c-dev so ddcutil can reach the monitor's DDC/CI bus. The NVIDIA driver
+# registers the i2c adapters; i2c-dev exposes them as /dev/i2c-* (needed by the
+# controller's DDC power control). Best-effort: needs the host module, which a
+# privileged container can load when /lib/modules is bind-mounted. If it fails,
+# the controller simply degrades to leaving the screen on.
+bs_load_i2c() {
+  modprobe i2c-dev >/dev/null 2>&1 || true
 }
 
 bs_restore() {
@@ -59,7 +62,9 @@ bs_restore() {
   trap - EXIT INT TERM
   echo "bubblescreen: restoring console -> switching to VT $original" >&2
   "${BS_TMUX:-tmux}" kill-server 2>/dev/null || true
-  setterm --term linux --blank 0 --powerdown 0 >/dev/null 2>&1 || true
+  # Ensure the monitor is powered back ON — the controller may have put it to
+  # DDC/CI standby, and we must never hand the console back to a dark screen.
+  command -v ddcutil >/dev/null 2>&1 && ddcutil setvcp --noverify d6 01 >/dev/null 2>&1 || true
   chvt "$original" 2>/dev/null || true
 }
 
@@ -90,9 +95,12 @@ main() {
   # Console mouse (wheel scroll) for tmux/htop/nvtop.
   gpm -m /dev/input/mice -t imps2 >/dev/null 2>&1 || true
 
-  # Build the session and set the kernel blank timer.
+  # Expose the DDC/CI i2c bus so the controller can power the monitor off/on.
+  bs_load_i2c
+
+  # Build the tmux session (view arrangement); the controller drives switching
+  # and display power management.
   MODE="$MODE" "${_here}/layout.sh" "$BS_SESSION"
-  bs_set_blank "$vt" "$SCREEN_TIMEOUT"
 
   # Drive behavior (smart/rotate) in the background.
   "${_here}/controller.sh" &

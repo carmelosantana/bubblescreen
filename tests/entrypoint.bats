@@ -4,9 +4,11 @@ setup() {
   source "${BATS_TEST_DIRNAME}/../src/lib.sh"
   source "${BATS_TEST_DIRNAME}/../src/entrypoint.sh"
   CALLS=""
-  setterm() { CALLS="${CALLS}setterm $*;"; }
-  chvt()    { CALLS="${CALLS}chvt $*;"; }
-  export -f setterm chvt
+  setterm()  { CALLS="${CALLS}setterm $*;"; }
+  chvt()     { CALLS="${CALLS}chvt $*;"; }
+  ddcutil()  { CALLS="${CALLS}ddcutil $*;"; }
+  modprobe() { :; }
+  export -f setterm chvt ddcutil modprobe
 }
 
 @test "bs_pick_vt honours a numeric TARGET_VT" {
@@ -14,20 +16,10 @@ setup() {
   [ "$output" = "4" ]
 }
 
-@test "bs_set_blank translates 1800s to 30 minutes on the target VT" {
-  bs_set_blank 7 1800
-  [[ "$CALLS" == *"setterm --term linux --blank 30 --powerdown 30"* ]]
-}
-
-@test "bs_set_blank with timeout 0 disables blanking" {
-  bs_set_blank 7 0
-  [[ "$CALLS" == *"--blank 0 --powerdown 0"* ]]
-}
-
-@test "bs_restore switches back to the original VT and unblanks" {
+@test "bs_restore switches back to the original VT and wakes the monitor" {
   bs_restore 1
   [[ "$CALLS" == *"chvt 1"* ]]
-  [[ "$CALLS" == *"--blank 0"* ]]
+  [[ "$CALLS" == *"ddcutil setvcp --noverify d6 01"* ]]
 }
 
 @test "bs_preflight fails when a required console tool is missing" {
@@ -137,7 +129,6 @@ setup() {
 
   run cat "$log"
   [[ "$output" == *"chvt 1"* ]]                       # restore ran on SIGTERM
-  [[ "$output" == *"setterm --term linux --blank 0"* ]]
 }
 
 @test "main forces the VT takeover with openvt -f (VT may be in use from a prior run)" {
@@ -217,7 +208,6 @@ setup() {
   ( main ) || true
 
   run cat "$log"
-  # Restore must have run: chvt back to the original VT and un-blank.
+  # Restore must have run: chvt back to the original VT.
   [[ "$output" == *"chvt 1"* ]]
-  [[ "$output" == *"setterm --term linux --blank 0"* ]]
 }
