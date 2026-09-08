@@ -5,8 +5,7 @@ physical console becomes a live CPU / RAM / temperature / NVIDIA-GPU dashboard;
 toggle it off and the normal TrueNAS console returns. Idle footprint: under
 ~50 MB RAM. No X, no desktop, no database.
 
-![Overview](docs/screenshots/overview.png)
-![GPU](docs/screenshots/gpu.png)
+![BubbleScreen running htop + nvtop on a TrueNAS physical console](docs/screenshots/console.jpg)
 
 ## How it works
 
@@ -129,3 +128,7 @@ bats tests/            # run all unit tests
 docker build -t bubblescreen:test .
 bash scripts/screenshots.sh   # regenerate README images (needs freeze + NVIDIA)
 ```
+
+## License
+
+[MIT](LICENSE) © Carmelo Santana
