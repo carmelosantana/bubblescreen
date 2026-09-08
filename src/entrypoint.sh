@@ -47,15 +47,6 @@ bs_hold() {
   sleep infinity
 }
 
-# Load i2c-dev so ddcutil can reach the monitor's DDC/CI bus. The NVIDIA driver
-# registers the i2c adapters; i2c-dev exposes them as /dev/i2c-* (needed by the
-# controller's DDC power control). Best-effort: needs the host module, which a
-# privileged container can load when /lib/modules is bind-mounted. If it fails,
-# the controller simply degrades to leaving the screen on.
-bs_load_i2c() {
-  modprobe i2c-dev >/dev/null 2>&1 || true
-}
-
 bs_restore() {
   local original="$1"
   # Disarm the trap so a signal-triggered restore doesn't re-run on EXIT.
@@ -95,11 +86,9 @@ main() {
   # Console mouse (wheel scroll) for tmux/htop/nvtop.
   gpm -m /dev/input/mice -t imps2 >/dev/null 2>&1 || true
 
-  # Expose the DDC/CI i2c bus so the controller can power the monitor off/on.
-  bs_load_i2c
-
   # Build the tmux session (view arrangement); the controller drives switching
-  # and display power management.
+  # and display power management (including loading i2c-dev and creating the
+  # DDC /dev/i2c-* nodes the monitor power control needs).
   MODE="$MODE" "${_here}/layout.sh" "$BS_SESSION"
 
   # Drive behavior (smart/rotate) in the background.

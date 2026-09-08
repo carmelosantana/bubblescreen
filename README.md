@@ -74,13 +74,16 @@ menu does: over **DDC/CI**, the control channel on the display cable, using
   idle timer if you don't touch anything — so a long GPU job flashes up once and
   goes back to sleep rather than keeping the panel lit for hours.
 
-**Requirements for power-off:** the `i2c-dev` kernel module must be loaded on the
-host (the container tries to `modprobe` it via the bind-mounted `/lib/modules`;
-if your host loads it at boot that's fine too), and **DDC/CI must be enabled in
+**Requirements for power-off:** it's self-contained. The container loads
+`i2c-dev` (via the bind-mounted `/lib/modules`) and creates the `/dev/i2c-*`
+nodes itself from `/sys` — necessary because Docker gives a container a private,
+point-in-time `/dev`, so the GPU's DDC buses (which can register after the
+container starts, e.g. after a host reboot) otherwise never appear inside it.
+The controller keeps retrying detection until the bus comes up, so it survives
+reboots without intervention. The only thing you must do is **enable DDC/CI in
 your monitor's on-screen menu** (some ship with it off). Monitors that don't
 support DDC/CI power control are left on — BubbleScreen logs a clear line saying
-so at startup. Not every monitor honors DDC/CI; it's verified working on an ASUS
-VS247, for example.
+so. Not every monitor honors DDC/CI; it's verified working on an ASUS VS247.
 
 ## Controls
 
@@ -102,12 +105,13 @@ the monitor and resets the idle timer; it sleeps again after `SCREEN_TIMEOUT`.
 - **No GPU data:** confirm the NVIDIA runtime is enabled and `nvidia-smi` works on
   the host; the container needs `NVIDIA_DRIVER_CAPABILITIES=utility`.
 - **Wrong VT / console flicker:** pin `TARGET_VT` to a known free VT.
-- **Display won't power off:** the startup log tells you which case you're in.
-  "no DDC/CI display found" means either `i2c-dev` isn't loaded on the host
-  (`modprobe i2c-dev`, or check the `/lib/modules` bind-mount) or the monitor's
-  DDC/CI setting is off — enable it in the monitor's on-screen menu (often called
-  "DDC/CI"). If `ddcutil detect` on the host finds the monitor but it still won't
-  sleep, that monitor ignores the DDC/CI power command and can't be slept.
+- **Display won't power off:** check the startup log (`docker logs <container>`).
+  `DDC/CI display on /dev/i2c-N` means it's working. `no DDC/CI display yet —
+  retrying` that never resolves means either the `/lib/modules` bind-mount is
+  missing (so `i2c-dev` can't load), or the monitor's DDC/CI setting is off —
+  enable it in the monitor's on-screen menu (often labelled "DDC/CI"). If the log
+  shows a bus but the monitor still won't sleep, that monitor ignores the DDC/CI
+  power command (VCP `D6`) and can't be slept over DDC.
 - **Garbled box-drawing characters on the console:** the tools must render with
   ACS line-drawing, not UTF-8. This image sets no locale on purpose; do not force
   a UTF-8 `LANG`/`LC_ALL`, or a raw VT console will show `âöç…` garbage.

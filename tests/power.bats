@@ -7,6 +7,7 @@ setup() {
   # Record DDC power writes and repaints instead of touching hardware.
   DDC=""; bs_ddc_power() { DDC="$DDC$1,"; }
   REFRESH=0; bs_refresh_client() { REFRESH=$((REFRESH+1)); }
+  modprobe() { :; }   # never touch real kernel modules in tests
   BS_INPUT_STAMP="$BATS_TEST_TMPDIR/stamp"; : > "$BS_INPUT_STAMP"
   BS_DDC_AVAILABLE=1; BS_DDC_BUS=2; MONITOR_STATE=on
 }
@@ -46,6 +47,17 @@ setup() {
   bs_wake_display
   [ "$DDC" = "01," ]; [ "$MONITOR_STATE" = "on" ]
   run bs_idle_secs; [ "$output" -lt 5 ]
+}
+
+@test "sync_i2c_nodes mknods the char devices from sysfs major:minor" {
+  local sys="$BATS_TEST_TMPDIR/i2c"; mkdir -p "$sys/i2c-2" "$sys/i2c-5"
+  echo "89:2" > "$sys/i2c-2/dev"; echo "89:5" > "$sys/i2c-5/dev"
+  BS_I2C_CLASS_GLOB="$sys/i2c-*"
+  BS_I2C_DEV_PREFIX="$BATS_TEST_TMPDIR/dev-i2c-"   # so [ -e ] never hits real /dev
+  MK=""; mknod() { MK="$MK mknod:$*"; }
+  bs_sync_i2c_nodes
+  [[ "$MK" == *"mknod:${BS_I2C_DEV_PREFIX}2 c 89 2"* ]]
+  [[ "$MK" == *"mknod:${BS_I2C_DEV_PREFIX}5 c 89 5"* ]]
 }
 
 @test "ddc_init records the detected bus and marks DDC available" {
