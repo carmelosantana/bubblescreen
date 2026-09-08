@@ -112,6 +112,11 @@ the monitor and resets the idle timer; it sleeps again after `SCREEN_TIMEOUT`.
   enable it in the monitor's on-screen menu (often labelled "DDC/CI"). If the log
   shows a bus but the monitor still won't sleep, that monitor ignores the DDC/CI
   power command (VCP `D6`) and can't be slept over DDC.
+- **Monitor goes fully dark with no standby LED:** that's normal, not a dead
+  display. Some monitors treat the DDC "off" command (`D6=04`) as a deeper power
+  state than a typical amber-LED standby, so the panel and its standby light both
+  go dark. It still wakes on the next keypress, mouse move, or GPU spike (`D6=01`)
+  — deeper off just means more power saved.
 - **Garbled box-drawing characters on the console:** the tools must render with
   ACS line-drawing, not UTF-8. This image sets no locale on purpose; do not force
   a UTF-8 `LANG`/`LC_ALL`, or a raw VT console will show `âöç…` garbage.
